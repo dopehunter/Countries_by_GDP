@@ -23,11 +23,41 @@ csv_file = 'Countries_by_GDP.csv'
 log_file = 'etl_project_log.txt'
 
 # parsing the HTML
-soup = BeautifulSoup(html_page, 'html.parser') # BeautifulSoup is a library that allows us to parse HTML and XML documents
-tables = soup.find_all('table')
-rows = tables[2].find_all('tr')
-for row in rows:
-    print(row.text)
+def data_preparation(html_page):
+    soup = BeautifulSoup(html_page, 'html.parser') # BeautifulSoup is a library that allows us to parse HTML and XML documents
+    tables = soup.find_all('table')
+    print(f"Number of tables: {len(tables)}")
+    rows = tables[2].find_all('tr')
+    print(f"Number of rows: {len(rows)}")
+    return rows
 
+def data_extraction(rows):
+    df = pd.DataFrame()
+    for row in rows[3:]:
+        columns = row.find_all('td')
+        if len(columns) != 0:
+            try:
+                gdp_text = columns[2].get_text().strip()
+                gdp_value = round(int(gdp_text.replace('$', '').replace(',', '')) / 1000, 2)
+                data_dict = {'Country': [columns[0].get_text().strip()],
+                            'GDP_USD_billions': [gdp_value]}
+                df1 = pd.DataFrame(data_dict)
+                df = pd.concat([df, df1], ignore_index=True)
+            except ValueError:
+                data_dict = {'Country': [columns[0].get_text().strip()],
+                            'GDP_USD_billions': [float('inf')]} # Используем float('inf') для перемещения невалидных значений в конец при сортировке
+                df1 = pd.DataFrame(data_dict)
+                df = pd.concat([df, df1], ignore_index=True)
+        else:
+            continue
+    return df   
 
-#print(tables[2].text)
+def data_loading(df):
+    df.to_csv(csv_file, index=False)
+
+def main():
+    rows = data_preparation(html_page)
+    df = data_extraction(rows)
+    data_loading(df)
+
+data_preparation(html_page)
