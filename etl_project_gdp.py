@@ -54,10 +54,19 @@ def data_extraction(rows):
 
 def data_loading(df):
     df.to_csv(csv_file, index=False)
-
+    df.to_sql(table_name, conn, if_exists='replace', index=False)
+    conn.commit()
 def main():
     rows = data_preparation(html_page)
     df = data_extraction(rows)
     data_loading(df)
 
-data_preparation(html_page)
+
+
+main()
+query_statement = f"SELECT * FROM {table_name}"
+query_output = pd.read_sql(query_statement, conn)
+print(query_statement)
+print(query_output)
+
+conn.close()
