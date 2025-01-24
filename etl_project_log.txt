@@ -10,3 +10,5 @@
 2025-Jan-24 13:06:52.994 : Data loading started
 2025-Jan-24 13:06:52.999 : Data loading ended
 2025-Jan-24 13:06:52.999 : ETL Job Ended
+2025-01-24 13:27:48,227 - Starting data extraction.
+2025-01-24 13:28:57,762 - Error occurred: No tables found

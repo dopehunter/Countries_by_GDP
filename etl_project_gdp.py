@@ -1,87 +1,88 @@
-# ETL project for GDP data
-
-# 1. Extract the data from the source
-# 2. Transform the data
-# 3. Load the data into the target
-
-
+import requests
 import pandas as pd
 import sqlite3
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime
+import json
+import logging
 
-# database and table creation
-conn = sqlite3.connect('World_Economies.db')
-table_name = 'Countries_by_GDP'
-table_attributes = ['Country', 'GDP_USD_millions']
-# url to the source and response
-url = 'https://web.archive.org/web/20230902185326/https://en.wikipedia.org/wiki/List_of_countries_by_GDP_%28nominal%29'
-html_page = requests.get(url).text # returns the HTML content of the page
+# Set up logging
+logging.basicConfig(filename='etl_project_log.txt', level=logging.INFO, format='%(asctime)s - %(message)s')
 
-#  output files
-csv_file = 'Countries_by_GDP.csv'
-log_file = 'etl_project_log.txt'
+def extract(url, table_attribs):
+    ''' Extracts the required information from the website and saves it to a dataframe. '''
+    log_progress("Starting data extraction.")
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = pd.read_html(response.text, attrs=table_attribs)[0]
+        log_progress("Data extraction successful.")
+        return data
+    else:
+        log_progress("Data extraction failed.")
+        raise Exception(f"Failed to fetch data from {url}. Status code: {response.status_code}")
 
-# parsing the HTML
-def data_preparation(html_page):
-    soup = BeautifulSoup(html_page, 'html.parser') # BeautifulSoup is a library that allows us to parse HTML and XML documents
-    tables = soup.find_all('table')
-    log_message(f"Number of tables fetched: {len(tables)}", log_file)
-    print(f"Number of tables: {len(tables)}")
-    rows = tables[2].find_all('tr')
-    log_message(f"Number of rows defined: {len(tables)}", log_file)
-    print(f"Number of rows: {len(rows)}")
-    return rows
-  
-def data_extraction(rows):
-    df = pd.DataFrame()
-    for row in rows[3:]:
-        columns = row.find_all('td')
-        if len(columns) != 0:
-            try:
-                gdp_text = columns[2].get_text().strip()
-                gdp_value = round(int(gdp_text.replace('$', '').replace(',', '')) / 1000, 2)
-                data_dict = {'Country': [columns[0].get_text().strip()],
-                            'GDP_USD_billions': [gdp_value]}
-                df1 = pd.DataFrame(data_dict)
-                df = pd.concat([df, df1], ignore_index=True)
-            except ValueError:
-                data_dict = {'Country': [columns[0].get_text().strip()],
-                            'GDP_USD_billions': [float('inf')]} # Используем float('inf') для перемещения невалидных значений в конец при сортировке
-                df1 = pd.DataFrame(data_dict)
-                df = pd.concat([df, df1], ignore_index=True)
-        else:
-            continue
-    return df   
+def transform(df):
+    ''' Transforms GDP data to billions and rounds it to 2 decimal places. '''
+    log_progress("Starting data transformation.")
+    df['GDP_USD_billion'] = df['GDP (Millions)'].str.replace(',', '').astype(float) / 1000
+    df = df.round({'GDP_USD_billion': 2})
+    df = df[['Country', 'GDP_USD_billion']]
+    log_progress("Data transformation successful.")
+    return df
 
-def data_loading(df):
-    df.to_csv(csv_file, index=False)
-    df.to_sql(table_name, conn, if_exists='replace', index=False)
-    conn.commit()
-def main():
-    log_message(f"ETL Job Started", log_file)
-    log_message(f"Data preparation started", log_file)
-    rows = data_preparation(html_page)
-    log_message(f"Data preparation ended", log_file)
-    log_message(f"Data extraction started", log_file)
-    df = data_extraction(rows)
-    log_message(f"Data extraction ended", log_file)
-    log_message(f"Data loading started", log_file)
-    data_loading(df)
-    log_message(f"Data loading ended", log_file)
-    log_message(f"ETL Job Ended", log_file)
-def log_message(message, log_file):
-    timestamp_format = '%Y-%h-%d %H:%M:%S.%f'
-    now = datetime.now()
-    timestamp = now.strftime(timestamp_format)[:-3]
-    with open(log_file, 'a') as log_file: 
-        log_file.write(timestamp + ' : ' + message + '\n')
+def load_to_csv(df, csv_path):
+    ''' Saves the dataframe as a CSV file. '''
+    log_progress(f"Saving data to CSV at {csv_path}.")
+    df.to_csv(csv_path, index=False)
+    log_progress("Data saved to CSV successfully.")
 
-main()
-query_statement = f"SELECT * FROM {table_name}"
-query_output = pd.read_sql(query_statement, conn)
-print(query_statement)
-print(query_output)
+def load_to_db(df, sql_connection, table_name):
+    ''' Saves the dataframe to a database table. '''
+    log_progress(f"Saving data to database table {table_name}.")
+    df.to_sql(table_name, sql_connection, if_exists='replace', index=False)
+    log_progress("Data saved to database successfully.")
 
-conn.close()
+def run_query(query_statement, sql_connection):
+    ''' Executes a query on the database and prints the result. '''
+    log_progress("Running query on the database.")
+    cursor = sql_connection.cursor()
+    cursor.execute(query_statement)
+    result = cursor.fetchall()
+    print("Query Result:", result)
+    log_progress("Query executed successfully.")
+
+def log_progress(message):
+    ''' Logs a message to the log file. '''
+    logging.info(message)
+
+# ETL pipeline execution
+if __name__ == '__main__':
+    # Configuration
+    url = "https://web.archive.org/web/20230902185326/https://en.wikipedia.org/wiki/List_of_countries_by_GDP_%28nominal%29"  # Replace with actual URL
+    table_attribs = {"class": "data-table"}
+    csv_path = "Countries_by_GDP.csv"
+    db_path = "World_Economies.db"
+    table_name = "Countries_by_GDP"
+    
+    try:
+        # Extract
+        raw_data = extract(url, table_attribs)
+
+        # Transform
+        processed_data = transform(raw_data)
+
+        # Load to CSV
+        load_to_csv(processed_data, csv_path)
+
+        # Load to Database
+        conn = sqlite3.connect(db_path)
+        load_to_db(processed_data, conn, table_name)
+
+        # Run Query
+        query = f"SELECT * FROM {table_name} WHERE GDP_USD_billion > 100"
+        run_query(query, conn)
+
+        # Close database connection
+        conn.close()
+
+    except Exception as e:
+        log_progress(f"Error occurred: {e}")
+        print(f"Error: {e}")
