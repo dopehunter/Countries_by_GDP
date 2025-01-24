@@ -1,0 +1,12 @@
+2025-Jan-24 13:05:39.337 : ETL Job Started
+2025-Jan-24 13:05:39.338 : Data preparation started
+2025-Jan-24 13:06:52.878 : ETL Job Started
+2025-Jan-24 13:06:52.879 : Data preparation started
+2025-Jan-24 13:06:52.962 : Number of tables fetched: 7
+2025-Jan-24 13:06:52.963 : Number of rows defined: 7
+2025-Jan-24 13:06:52.963 : Data preparation ended
+2025-Jan-24 13:06:52.963 : Data extraction started
+2025-Jan-24 13:06:52.994 : Data extraction ended
+2025-Jan-24 13:06:52.994 : Data loading started
+2025-Jan-24 13:06:52.999 : Data loading ended
+2025-Jan-24 13:06:52.999 : ETL Job Ended

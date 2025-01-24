@@ -9,6 +9,7 @@ import pandas as pd
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 # database and table creation
 conn = sqlite3.connect('World_Economies.db')
@@ -26,11 +27,13 @@ log_file = 'etl_project_log.txt'
 def data_preparation(html_page):
     soup = BeautifulSoup(html_page, 'html.parser') # BeautifulSoup is a library that allows us to parse HTML and XML documents
     tables = soup.find_all('table')
+    log_message(f"Number of tables fetched: {len(tables)}", log_file)
     print(f"Number of tables: {len(tables)}")
     rows = tables[2].find_all('tr')
+    log_message(f"Number of rows defined: {len(tables)}", log_file)
     print(f"Number of rows: {len(rows)}")
     return rows
-
+  
 def data_extraction(rows):
     df = pd.DataFrame()
     for row in rows[3:]:
@@ -57,11 +60,23 @@ def data_loading(df):
     df.to_sql(table_name, conn, if_exists='replace', index=False)
     conn.commit()
 def main():
+    log_message(f"ETL Job Started", log_file)
+    log_message(f"Data preparation started", log_file)
     rows = data_preparation(html_page)
+    log_message(f"Data preparation ended", log_file)
+    log_message(f"Data extraction started", log_file)
     df = data_extraction(rows)
+    log_message(f"Data extraction ended", log_file)
+    log_message(f"Data loading started", log_file)
     data_loading(df)
-
-
+    log_message(f"Data loading ended", log_file)
+    log_message(f"ETL Job Ended", log_file)
+def log_message(message, log_file):
+    timestamp_format = '%Y-%h-%d %H:%M:%S.%f'
+    now = datetime.now()
+    timestamp = now.strftime(timestamp_format)[:-3]
+    with open(log_file, 'a') as log_file: 
+        log_file.write(timestamp + ' : ' + message + '\n')
 
 main()
 query_statement = f"SELECT * FROM {table_name}"
